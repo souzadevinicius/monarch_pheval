@@ -9,6 +9,8 @@ RUNNERS_DIR				:= $(ROOT_DIR)/runners
 NAME					:= $(shell python -c 'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["tool"]["poetry"]["name"])')
 VERSION					:= $(shell python -c 'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["tool"]["poetry"]["version"])')
 SEMSIM_BASE_URL			:= https://storage.googleapis.com/data-public-monarchinitiative/semantic-similarity/latest
+EXOMISER_VERSIONS		:=	13.2.1 13.3.0
+
 
 help: info
 	@echo ""
@@ -40,7 +42,7 @@ prepare-inputs: configurations/{{ config.id }}/config.yaml
 {% if config.preprocessing is defined %}
 SQL_DEPENDENCIES_{{ config.id }} = {%- for pp in config.preprocessing %} $(TMP_DATA)/semsim/{{ pp }} {%endfor %}
 
-configurations/{{ config.id }}/config.yaml: $(SQL_DEPENDENCIES_{{ config.id }}) $(TMP_DATA)/h2.jar
+configurations/{{ config.id }}/config.yaml: $(addprefix $(RUNNERS_DIR)/exomiser-,$(EXOMISER_VERSIONS)) $(SQL_DEPENDENCIES_{{ config.id }})
 	mkdir -p $(ROOT_DIR)/$(shell dirname $@)/
 
 	cp -rf $(PHENOTYPE_DIR)/{{ config.phenotype }}_phenotype $(ROOT_DIR)/$(shell dirname $@)/{{ config.phenotype }}_phenotype
@@ -51,7 +53,7 @@ configurations/{{ config.id }}/config.yaml: $(SQL_DEPENDENCIES_{{ config.id }}) 
 	test -L $(ROOT_DIR)/$(shell dirname $@)/{{ config.phenotype }}_phenotype || ln -s $(RUNNERS_DIR)/{{ config.tool }}-{{ config.version }}/* $(ROOT_DIR)/$(shell dirname $@)/
 
  {%- for pp in config.preprocessing %}
-	java -Xms128m -Xmx8192m -Dh2.bindAddress=127.0.0.1 -cp $(TMP_DATA)/h2.jar org.h2.tools.RunScript -url jdbc:h2:file:$(ROOT_DIR)/$(shell dirname $@)/{{ config.phenotype }}_phenotype/{{ config.phenotype }}_phenotype -script $(TMP_DATA)/semsim/{{ pp }} -user sa
+	java -Xms128m -Xmx8192m -Dh2.bindAddress=127.0.0.1 -cp $(shell find $< -type f -name "h2*.jar") org.h2.tools.RunScript -url jdbc:h2:file:$(ROOT_DIR)/$(shell dirname $@)/{{ config.phenotype }}_phenotype/{{ config.phenotype }}_phenotype -script $(TMP_DATA)/semsim/{{ pp }} -user sa
  {%endfor %}
 
 .PHONY: semsim-ingest
@@ -153,6 +155,21 @@ corpora/{{ corpus.id }}/{{ custom_corpus.id }}/corpus.yml: $(ROOT_DIR)/testdata/
 
 {% endif %}
 {% endfor %}
+
+.PHONY: download-exomiser
+download-exomiser: $(addprefix $(RUNNERS_DIR)/exomiser-,$(EXOMISER_VERSIONS))
+
+$(TMP_DATA)/exomiser-cli-%-distribution.zip:
+	mkdir -p $(TMP_DATA)
+	wget https://github.com/exomiser/Exomiser/releases/download/$*/exomiser-cli-$*-distribution.zip -O $@
+
+$(RUNNERS_DIR)/exomiser-%: $(TMP_DATA)/exomiser-cli-%-distribution.zip
+	mkdir -p $(RUNNERS_DIR)
+	unzip $< -d $(RUNNERS_DIR)
+	mv $(RUNNERS_DIR)/exomiser-cli-$* $(RUNNERS_DIR)/exomiser-$*
+	cp $(RUNNERS_DIR)/configurations/preset-exome-analysis.yml $(RUNNERS_DIR)/exomiser-$*/
+
+
 
 
 .PHONY: pheval

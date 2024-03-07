@@ -1,28 +1,10 @@
 # This includes all the preprocessing not directly related to the PhEval Running
 
-EXOMISER_VERSIONS				:=	13.2.1 13.3.0
 PHENOTYPE_VERSIONS				:=	2302 2309
-H2_JAR_URL						:=	https://repo1.maven.org/maven2/com/h2database/h2/1.4.199/h2-1.4.199.jar
 
 
 .PHONY: setup
-setup: download-exomiser download-phenotype
-
-.PHONY: download-exomiser
-download-exomiser: $(addprefix $(RUNNERS_DIR)/exomiser-,$(EXOMISER_VERSIONS))
-
-$(TMP_DATA)/h2.jar:
-	wget $(H2_JAR_URL) -O $@
-
-$(TMP_DATA)/exomiser-cli-%-distribution.zip:
-	mkdir -p $(TMP_DATA)
-	wget https://github.com/exomiser/Exomiser/releases/download/$*/exomiser-cli-$*-distribution.zip -O $@
-
-$(RUNNERS_DIR)/exomiser-%: $(TMP_DATA)/exomiser-cli-%-distribution.zip
-	mkdir -p $(RUNNERS_DIR)
-	unzip $< -d $(RUNNERS_DIR)
-	mv $(RUNNERS_DIR)/exomiser-cli-$* $(RUNNERS_DIR)/exomiser-$*
-	cp $(RUNNERS_DIR)/configurations/preset-exome-analysis.yml $(RUNNERS_DIR)/exomiser-$*/
+setup: download-phenotype
 
 .PHONY: download-phenotype
 download-phenotype: $(addprefix $(PHENOTYPE_DIR)/,$(addsuffix _hg19.sha256,$(PHENOTYPE_VERSIONS))) $(addprefix $(PHENOTYPE_DIR)/,$(addsuffix _hg38.sha256,$(PHENOTYPE_VERSIONS))) $(addprefix $(PHENOTYPE_DIR)/,$(addsuffix _phenotype.sha256,$(PHENOTYPE_VERSIONS)))
